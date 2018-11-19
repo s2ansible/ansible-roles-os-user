@@ -1,0 +1,34 @@
+---
+- name: Create user
+  user:
+    name: "{{ os_user.name }}"
+    password: "{{ os_user.password | password_hash('sha512') }}"
+    state: present
+    generate_ssh_key: "{{ os_user.generate_ssh_key }}"
+    home: "{{ os_user.homedir }}"
+
+- name: read public_key
+  command: cat {{ os_user.homedir }}/.ssh/id_rsa.pub
+  register: read_public_key
+  changed_when: false
+  check_mode: no
+
+- name: Write public_key
+  lineinfile:
+    path: "{{ os_user.homedir }}/.ssh/authorized_keys"
+    line: "{{ read_public_key.stdout }}"
+    owner: "{{ os_user.name }}"
+    group: "{{ os_user.name }}"
+    mode: 0600
+    create: yes
+
+- name: Write additional public_key
+  lineinfile:
+    path: "{{ os_user.homedir }}/.ssh/authorized_keys"
+    line: "{{ item }}"
+  with_items: "{{ os_user.additional_public_key }}"
+
+- name: Setup sudo
+  lineinfile:
+    dest: /etc/sudoers
+    line: "{{ os_user.name }} ALL=(ALL) NOPASSWD:ALL"
